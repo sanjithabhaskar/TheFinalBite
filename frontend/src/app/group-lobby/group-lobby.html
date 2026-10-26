@@ -1,44 +1,115 @@
+<app-header [step]="2" [user]="myName()" />
+
+<main class="page">
 @if (group(); as g) {
-  <h1>{{ g.name || 'Your group' }}</h1>
-
-  <div class="invite">
+  <div class="top">
     <div>
-      <div class="label">Invite code</div>
-      <div class="code">{{ g.invite_code }}</div>
+      <p class="eyebrow">The table is coming together</p>
+      <h1 class="display">{{ g.name || 'Your group' }}</h1>
+      <p class="lede">Good company? Check. Let's find the food.</p>
     </div>
-    <button (click)="copyLink()">{{ copied() ? 'Copied!' : 'Copy invite link' }}</button>
+    <span class="pill open">Lobby open · {{ g.members.length }} {{ g.members.length === 1 ? 'person' : 'people' }}</span>
   </div>
-  <p class="link">{{ inviteLink }}</p>
 
-  <h2>In this group ({{ g.members.length }})</h2>
-  <ul>
-    @for (m of g.members; track m.id) {
-      <li [class.me]="m.id === myId">
-        <strong>
-          {{ m.name }}
-          @if (m.id === myId) { (you) }
-          @if (m.id === g.host_member_id) { <span class="host">host</span> }
-        </strong>
-        <span class="meta">
-          up to ${{ m.max_entree_budget }}
-          @if (m.dietary_restrictions.length) { · {{ m.dietary_restrictions.map(pretty).join(', ') }} }
-        </span>
-      </li>
-    }
-  </ul>
+  <div class="cols">
+    <div class="left">
+      <div class="tint invite">
+        <p class="make">Make room for your friends.</p>
+        <p class="small">Your invite code</p>
+        <div class="invrow">
+          <span class="code">{{ g.invite_code }}</span>
+          <button class="btn btn-primary copy" (click)="copyLink()">{{ copied() ? 'Copied!' : 'Copy invite link' }} <span>⧉</span></button>
+        </div>
+        <p class="link">{{ inviteLink }}</p>
+      </div>
 
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
-  }
+      <div class="surface table">
+        <div class="thead">
+          <h2 class="serif">At the table <span>({{ g.members.length }})</span></h2>
+          @if (!editing()) { <a class="edit" (click)="openEdit()">Edit my preferences</a> }
+        </div>
 
-  @if (isHost()) {
-    <button class="start" (click)="start()" [disabled]="starting()">Start swiping</button>
-    <p class="next">Wait for everyone to join first. Nobody can join after you start.</p>
-  } @else {
-    <p class="next">Waiting for the host to start swiping...</p>
-  }
+        @for (m of g.members; track m.id) {
+          <div class="person">
+            <span class="avatar">{{ initials(m.name) }}</span>
+            <span class="who">
+              {{ m.name }}
+              @if (m.id === g.host_member_id || m.id === myId) {
+                <small class="tag">{{ m.id === g.host_member_id ? 'HOST' : '' }}{{ m.id === g.host_member_id && m.id === myId ? ' · ' : '' }}{{ m.id === myId ? 'YOU' : '' }}</small>
+              }
+            </span>
+            <span class="ready">✓ Ready</span>
+          </div>
+        }
+
+        @if (editing()) {
+          <div class="editbox">
+            <label>Most I'd pay for one entrée
+              <span class="money"><span>$</span><input type="number" min="1" [ngModel]="editBudget()" (ngModelChange)="editBudget.set($event)" /></span>
+            </label>
+            <p class="label">Dietary restrictions</p>
+            <div class="chips">
+              @for (d of dietaryOptions; track d) {
+                <button type="button" class="chip" [class.on]="editDietary().includes(d)" (click)="toggle(editDietary, d)">
+                  @if (editDietary().includes(d)) { <span class="tick">✓</span> }{{ pretty(d) }}
+                </button>
+              }
+            </div>
+            <p class="label">Cuisines I like <span class="opt">(none = any)</span></p>
+            <div class="chips">
+              @for (c of cuisineOptions; track c) {
+                <button type="button" class="chip" [class.on]="editCuisines().includes(c)" (click)="toggle(editCuisines, c)">
+                  @if (editCuisines().includes(c)) { <span class="tick">✓</span> }{{ pretty(c) }}
+                </button>
+              }
+            </div>
+            <div class="actions">
+              <button class="btn btn-primary" (click)="saveEdit()" [disabled]="saving()">Save changes</button>
+              <button class="btn btn-outline" (click)="editing.set(false)">Cancel</button>
+            </div>
+            <p class="note">Only you can see these.</p>
+          </div>
+        }
+
+        <p class="waitline">
+          ◷
+          @if (isHost()) {
+            @if (othersText()) { {{ othersText() }} {{ g.members.length > 2 ? 'are' : 'is' }} waiting for you to start. }
+            @else { You're the only one here so far. Share the invite code to bring people in. }
+            Guests can update their preferences, but only the host can start swiping.
+          } @else {
+            Waiting for {{ g.host_name }} to start swiping. You can update your preferences until then.
+          }
+        </p>
+        @if (saved()) { <p class="saved">✓ Preferences saved</p> }
+      </div>
+
+      @if (startError()) { <p class="error">{{ startError() }}</p> }
+      @if (error()) { <p class="error">{{ error() }}</p> }
+
+      @if (isHost()) {
+        <div class="startrow">
+          <div><strong>Everyone here?</strong><p>Wait for everyone to join. Joining closes as soon as you start swiping.</p></div>
+          <button class="btn btn-primary" (click)="start()" [disabled]="starting()">Start swiping <span>→</span></button>
+        </div>
+      }
+    </div>
+
+    <aside class="sand side">
+      <div class="photo-box pic"><img src="bowl.jpg" alt="" (error)="$any($event.target).style.display = 'none'" /></div>
+      <p class="eyebrow">A deck made for this table</p>
+      <h2 class="serif big">Different appetites.<br />One happy group.</h2>
+      <p class="muted">We'll use everyone's needs to find restaurants with options for the whole table.</p>
+      <div class="pills"><span class="pill">Fits everyone's budget</span><span class="pill">Works for everyone's diet</span></div>
+      <hr />
+      <p class="muted fine">Swipe independently. A restaurant becomes a match only when everyone says yes. No majority rules here.</p>
+    </aside>
+  </div>
 } @else if (error()) {
   <p class="error">{{ error() }}</p>
 } @else {
-  <p>Loading...</p>
+  <p class="muted">Loading...</p>
 }
+</main>
+
+<app-footer />

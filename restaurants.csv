@@ -1,0 +1,60 @@
+id,name,website,menu_status,why
+54,7th Street Burger East Village,https://locations.7thstreetburger.com/locations/ny/new-york/91-e-7th-st,failed,https://locations.7thstreetburger.com/locations/ny/new-york/91-e-7th-st: No modu
+51,AMALFI Rooftop by Birreria,https://www.eataly.com/us_en/stores/nyc-flatiron/restaurants/serra-by-birreria,failed,https://www.eataly.com/us_en/stores/nyc-flatiron/restaurants/amalfi-rooftop-by-b
+24,Au Za'atar - East Village,http://www.auzaatar.com/,failed,https://www.auzaatar.com/: No module named 'google'
+46,Avant Garden,https://www.avantgardennyc.com/,failed,https://www.avantgardennyc.com/: No module named 'google'
+9,Ayat,https://www.ayatnyc.com/location/east-village/?utm_source=google&utm_medium=organic&utm_campaign=gbp-profile%20&utm_content=evi,failed,https://www.ayatnyc.com/location/east-village/?utm_source=google&utm_medium=orga
+44,Buenos Aires,https://buenosairesnyc.com/?utm_source=google,failed,https://buenosairesnyc.com/?utm_source=google: Client error '403 Forbidden' for 
+3,Bungalow,https://www.bungalowny.com/,failed,https://www.bungalowny.com/: No module named 'google'
+11,Cafe Mogador,http://cafemogador.com/,failed,https://cafemogador.com/: No module named 'google'
+20,Cathédrale Restaurant,https://taogroup.com/venues/cathedrale-new-york/,failed,https://taogroup.com/venues/cathedrale-new-york/: Client error '403 Forbidden' f
+40,Death & Co East Village,http://www.deathandcompany.com/,failed,https://www.deathandcompany.com/: No module named 'google'
+16,Fiaschetteria Pistoia,https://www.fiaschetteriapistoia.com/,failed,https://fiaschetteriapistoia.com/: No module named 'google'
+17,Gemma,http://www.theboweryhotel.com/dining/gemma,failed,no readable menu at https://theboweryhotel.com/dining/gemma/
+35,Gnoccheria East Village,https://www.gnoccherianyc.com/,failed,https://www.gnoccherianyc.com/: Client error '404 Not Found' for url 'https://ww
+33,Gnocco,http://www.gnocco.com/,failed,https://www.gnocco.com/: No module named 'google'
+56,Hanoi House,http://www.hanoihousenyc.com/,failed,https://www.hanoihousenyc.com/: No module named 'google'
+25,Hearth,https://www.restauranthearth.com/?utm_source=google&utm_medium=organic&utm_campaign=gbp-website-link,failed,https://www.restauranthearth.com/?utm_source=google&utm_medium=organic&utm_campa
+53,IPPUDO NY,https://www.ippudous.com/east-village,failed,no readable menu at https://ev-ippudony-menu-qr.netlify.app/
+4,Ladybird,https://ladybirdny.com/?utm_source=google,failed,https://ladybirdny.com/?utm_source=google: Client error '403 Forbidden' for url 
+28,Lil' Frankie's,http://www.lilfrankies.com/,failed,https://www.lilfrankies.com/wine-menus: No module named 'google'
+29,Little Ruby's East Village,https://www.rubyscafe.com/location/east-village/,failed,https://www.rubyscafe.com/location/east-village/: No module named 'google'
+58,MáLà Project,http://malaproject.com/,failed,no readable menu at https://www.malaproject.com/
+19,Mountain House East Village,https://www.szechuanmountainhouse.com/,failed,no readable menu at https://www.szechuanmountainhouse.com/
+23,Nowon East Village,https://www.nowonusa.com/,failed,https://www.nowonusa.com/: No module named 'google'
+2,San Marzano,http://www.sanmarzanonyc.com/,failed,http://www.sanmarzanonyc.com/: No module named 'google'
+7,Supper,http://supperrestaurant.com/,failed,no readable menu at https://www.supperrestaurant.com/
+22,The Smith,https://thesmithrestaurant.com/location/east-village/,failed,https://thesmithrestaurant.com/location/east-village/: Client error '403 Forbidd
+27,The Wayland,http://thewaylandnyc.com/,failed,https://www.thewaylandnyc.com/: No module named 'google'
+41,Thursday Kitchen | Korean,http://www.thursdaykitchen.com/,failed,no readable menu at https://thursdaykitchen.com/
+5,Veselka,https://www.veselka.com/,failed,https://www.veselka.com/: Client error '429 Too Many Requests' for url 'https://
+30,Via Della Pace,http://viadellapacenyc.com/,failed,https://viadellapacenyc.com/: No module named 'google'
+42,Westville East,https://westvillenyc.com/locations/westville-east/,failed,https://westville.com/locations/westville-east/: No module named 'google'
+31,Yuca Bar & Restaurant,http://yucabarnyc.com/,failed,https://www.yucabarnyc.com/: No module named 'google'
+10,No Fork,,no_website,
+34,The Cabin NYC,,no_website,
+18,Momofuku Noodle Bar,https://momofukunoodlebar.com/,parsed,
+50,Pylos,http://www.pylosrestaurant.com/,parsed,
+1,Soothr,http://soothrnyc.com/,parsed,
+47,noreetuh,http://noreetuh.com/,parsed,
+37,A10,https://a10kitchen.com/,pending,
+6,AURA Tapas & Cocktail Bar,http://www.aurabarandkitchen.com/,pending,
+32,Brindle Room,http://brindleroomny.com/,pending,
+13,Bufón,http://www.bufonnyc.com/,pending,
+85,Cafe Mogador,https://static1.squarespace.com/static/571da513c2ea511fcc0e4e6e/t/6ab8279b184acd512bb04f09/1790453659410/Cafe+Mogador+EV+Menu.pdf,pending,
+38,Giano,https://www.gianonyc.com/,pending,
+49,Kabawa,https://www.momofuku.com/restaurants/kabawa,pending,
+39,Lavagna,http://www.lavagnanyc.com/,pending,
+21,Leon's,https://www.leonsnyc.com/,pending,
+36,Little Kirin,http://eatlittlekirin.com/,pending,
+8,Nudibranch,http://nudibranchnyc.com/,pending,
+26,Odo East Village,https://www.odoeastvillage.nyc/,pending,
+57,POST,http://www.post-nyc.com/,pending,
+14,Penny,http://penny-nyc.com/,pending,
+45,Rosella,http://www.rosellanyc.com/,pending,
+48,Smithereens,https://www.smithereensnyc.com/,pending,
+12,Smør,http://www.smornyc.com/,pending,
+15,Soda Club,https://www.overthrowhospitality.com/,pending,
+52,The Copper Still East Village,http://www.thecopperstillnyc.com/,pending,
+43,The East Village Kitchen,https://www.instagram.com/the_evkitchen/,pending,
+55,Titi's Empanadas - East Village,https://titisnyc.com/,pending,

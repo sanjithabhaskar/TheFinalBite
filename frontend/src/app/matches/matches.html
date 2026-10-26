@@ -1,26 +1,93 @@
-<nav><a [routerLink]="['/swipe', code]">← Back to swiping</a></nav>
-<h1>Matches</h1>
+<app-header [step]="3" [user]="myName()" />
 
-@if (data(); as d) {
-  <p class="sub">Restaurants all {{ d.member_count }} of you said yes to. This updates as people swipe.</p>
+<main class="page">
+  @if (data(); as d) {
+    <div class="top">
+      <div>
+        <p class="eyebrow">{{ group()?.name || 'Your group' }} · {{ everyoneFinished() ? "Everyone's in" : 'Still swiping' }}</p>
+        <h1 class="display">Great taste. Shared.</h1>
+        <p class="lede">
+          {{ d.matches.length }} {{ d.matches.length === 1 ? 'place' : 'places' }}.
+          {{ d.member_count }} happy {{ d.member_count === 1 ? 'person' : 'people' }}.
+          Every match got a yes from everyone.
+        </p>
+      </div>
+      <button class="btn btn-outline" (click)="share()" [disabled]="!d.matches.length">{{ copied() ? 'Copied!' : 'Share matches' }} <span>⇪</span></button>
+    </div>
 
-  @if (d.matches.length === 0) {
-    <p class="empty">No matches yet. Keep swiping, or wait for the others to finish.</p>
+    <div class="cols">
+      <div class="left">
+        <div class="head"><span>Your unanimous matches ({{ d.matches.length }})</span><span class="muted">Sorted by group fit ↓</span></div>
+
+        @if (d.matches.length === 0) {
+          <div class="surface empty">No matches yet. Keep swiping, or wait for the others to finish.</div>
+        } @else {
+          <div class="grid">
+            @for (r of d.matches; track r.id; let first = $first) {
+              <article class="surface card">
+                <div class="photo" [style.background]="gradient(r.cuisines)">
+                  @if (r.image_url && !brokenImages().has(r.id)) {
+                    <img [src]="r.image_url" [alt]="r.name" (error)="imageFailed(r.id)" referrerpolicy="no-referrer" />
+                  }
+                  <span class="badge">♡ {{ d.member_count }} of {{ d.member_count }} said yes</span>
+                </div>
+                <div class="body">
+                  <h2 class="serif">{{ r.name }}</h2>
+                  <p class="sub">{{ r.neighborhood }}@if (r.rating) { · ★ {{ r.rating }} }@if (cuisineOf(r)) { · {{ cuisineOf(r) }} }</p>
+                  <div class="prow">
+                    <span class="typ">${{ r.median_entree_price }} typical entrée</span>
+                    @if (r.min_entree_price !== null && r.max_entree_price !== null) { <span class="range">${{ r.min_entree_price }}–${{ r.max_entree_price }}</span> }
+                  </div>
+                  <div class="tags">
+                    @for (t of (r.dietary_tags ?? []).slice(0, 3); track t) { <span class="pill">{{ optionLabel(t) }}</span> }
+                  </div>
+                  <div class="who">
+                    @for (m of members(); track m.id) { <span class="avatar">{{ initials(m.name) }}</span> }
+                    <span class="names">{{ names() }} · It's a yes.</span>
+                  </div>
+                  @if (r.menu_url || r.website) {
+                    <a class="btn full" [class.btn-primary]="first" [class.btn-outline]="!first" [href]="r.menu_url || r.website" target="_blank" rel="noopener">View restaurant <span>↗</span></a>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        }
+        <p class="foot">ⓘ Prices are per entrée, before tax and tip. Check the menu and confirm dietary needs with the restaurant before you go.</p>
+      </div>
+
+      <aside>
+        <div class="sage status">
+          <p class="eyebrow dim">{{ everyoneFinished() ? '✓ Everyone\'s finished' : 'Still swiping' }}</p>
+          <h2 class="serif">{{ everyoneFinished() ? 'Dinner is looking good.' : 'Hang tight.' }}</h2>
+          <p class="muted">
+            @if (everyoneFinished()) {
+              You all swiped all {{ deck() }} restaurants. {{ d.matches.length === 1 ? 'This is the one' : 'These are the ' + d.matches.length }} you agreed on.
+            } @else {
+              Waiting on {{ waitingOn() }}. Matches update as people swipe.
+            }
+          </p>
+          <hr />
+          @for (m of members(); track m.id) {
+            <div class="mrow">
+              <span class="avatar sage">{{ initials(m.name) }}</span>
+              <span class="mname">{{ m.name }}@if (m.id === me?.id) { (you) }</span>
+              <span class="mdone">{{ m.swiped >= deck() ? '✓' : m.swiped + ' of ' + deck() }}</span>
+            </div>
+          }
+        </div>
+
+        <p class="eyebrow made">A yes that works for everyone</p>
+        <p class="muted">Every match fits the group's budget and dietary needs.</p>
+        <a class="btn btn-outline full again" routerLink="/">Start a new group</a>
+        <p class="muted small">Same friends, another craving? Make a new group for your next meal.</p>
+      </aside>
+    </div>
+  } @else if (error()) {
+    <p class="error">{{ error() }}</p>
   } @else {
-    <ul>
-      @for (r of d.matches; track r.id) {
-        <li>
-          <strong>{{ r.name }}</strong>
-          <span class="meta">
-            {{ r.neighborhood }} · typical entrée ${{ r.median_entree_price }}
-          </span>
-          <span class="meta">{{ (r.cuisines ?? []).map(pretty).join(', ') }}</span>
-        </li>
-      }
-    </ul>
+    <p class="muted">Loading...</p>
   }
-} @else if (error()) {
-  <p class="error">{{ error() }}</p>
-} @else {
-  <p>Loading...</p>
-}
+</main>
+
+<app-footer />

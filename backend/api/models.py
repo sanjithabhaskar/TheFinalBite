@@ -14,6 +14,7 @@ class DiningGroups(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     host_member = models.ForeignKey('Members', models.DB_SET_NULL, blank=True, null=True, related_name='hosted_groups')
     started_at = models.DateTimeField(blank=True, null=True)
+    deck_ids = ArrayField(models.IntegerField(), default=list, blank=True)
 
     class Meta:
         managed = False
@@ -37,6 +38,7 @@ class Members(models.Model):
     dietary_restrictions = ArrayField(models.TextField(), default=list, blank=True)
     cuisine_prefs = ArrayField(models.TextField(), default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    token = models.TextField(blank=True, null=True)
 
     class Meta:
         managed = False

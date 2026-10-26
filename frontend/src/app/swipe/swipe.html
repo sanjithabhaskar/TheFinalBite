@@ -1,38 +1,96 @@
-<nav><a [routerLink]="['/matches', code]">See matches →</a></nav>
+<app-header [step]="3" [user]="myName()" />
 
-@if (loading()) {
-  <p>Loading restaurants...</p>
-} @else if (current(); as r) {
-  <div class="card">
-    <h1>{{ r.name }}</h1>
-    <p class="sub">
-      {{ r.neighborhood }}
-      @if (r.rating) { · ★ {{ r.rating }} }
-    </p>
-    <p class="price">
-      Typical entrée <strong>${{ r.median_entree_price }}</strong>
-      @if (r.min_entree_price !== null && r.max_entree_price !== null) {
-        <span class="range">(${{ r.min_entree_price }} – ${{ r.max_entree_price }})</span>
-      }
-    </p>
-    <div class="tags">
-      @for (c of r.cuisines ?? []; track c) { <span class="tag">{{ pretty(c) }}</span> }
-      @for (d of r.dietary_tags ?? []; track d) { <span class="tag diet">{{ pretty(d) }}</span> }
+<main class="page">
+  <div class="top">
+    <div>
+      <p class="eyebrow">{{ group()?.name || 'Your group' }} · The fun part</p>
+      <h1 class="display">Follow your appetite.</h1>
+      <p class="lede">Swipe for yourself. We'll take care of finding everyone's yes.</p>
     </div>
+    <a class="btn btn-outline" [routerLink]="['/matches', code]">View matches · {{ matchCount() }} <span>↗</span></a>
   </div>
 
-  @if (error()) { <p class="error">{{ error() }}</p> }
+  <div class="cols">
+    <div class="left">
+      @if (loading()) {
+        <p class="muted">Loading restaurants...</p>
+      } @else if (current(); as r) {
+        <div class="meta"><span>RESTAURANT {{ done() + 1 }} OF {{ total() }}</span><span>Your votes stay yours</span></div>
 
-  <div class="actions">
-    <button class="no" (click)="vote(false)" [disabled]="busy()">✕ No</button>
-    <button class="yes" (click)="vote(true)" [disabled]="busy()">♥ Yes</button>
+        <div class="deck">
+          <article class="card">
+            <div class="photo" [style.background]="gradient(r.cuisines)">
+              @if (r.image_url && !brokenImages().has(r.id)) {
+                <img [src]="r.image_url" [alt]="r.name" (error)="imageFailed(r.id)" referrerpolicy="no-referrer" />
+              }
+              <span class="badge">🍃 A fit for your group</span>
+              @if (r.menu_url || r.website) {
+                <a class="out" [href]="r.menu_url || r.website" target="_blank" rel="noopener" aria-label="View the menu">↗</a>
+              }
+            </div>
+            <div class="body">
+              <div class="row">
+                <div>
+                  <h2 class="serif">{{ r.name }}</h2>
+                  <p class="sub">{{ r.neighborhood }}@if (r.rating) { · ★ {{ r.rating }} }@if (cuisineOf(r)) { · {{ cuisineOf(r) }} }</p>
+                </div>
+                <div class="price">
+                  <strong>${{ r.median_entree_price }}</strong>
+                  <small>Typical entrée@if (r.min_entree_price !== null && r.max_entree_price !== null) { · ${{ r.min_entree_price }}–${{ r.max_entree_price }} }</small>
+                </div>
+              </div>
+              <div class="tags">
+                @for (d of r.dietary_tags ?? []; track d) { <span class="pill">{{ pretty(d) }}</span> }
+              </div>
+            </div>
+          </article>
+        </div>
+
+        @if (error()) { <p class="error">{{ error() }}</p> }
+
+        <div class="actions">
+          <button class="btn btn-outline no" (click)="vote(false)" [disabled]="busy()">✕ &nbsp;Not for me</button>
+          <button class="btn btn-primary yes" (click)="vote(true)" [disabled]="busy()">♡ &nbsp;Yes, let's eat</button>
+        </div>
+        <p class="keys"><span>← No thanks</span><span>Yes please →</span></p>
+      } @else if (finished()) {
+        <div class="surface donecard">
+          <h2 class="serif">You're done!</h2>
+          <p class="muted">You've seen every restaurant in the group's deck.</p>
+          <a class="btn btn-primary" [routerLink]="['/matches', code]">See the group's matches</a>
+        </div>
+      } @else if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
+    </div>
+
+    <aside>
+      <div class="surface table">
+        <div class="thead"><h3 class="serif">Your table</h3><span class="state">● {{ allDone() ? 'FINISHED' : 'SWIPING' }}</span></div>
+        @for (m of group()?.members ?? []; track m.id) {
+          <div class="person">
+            <div class="prow">
+              <span class="avatar">{{ initials(m.name) }}</span>
+              <span class="who">{{ m.name }}@if (m.id === me?.id) { (you) }</span>
+              <span class="n">{{ m.swiped }} of {{ total() }}</span>
+            </div>
+            <div class="bar"><div class="fill" [style.width.%]="percent(m.swiped)"></div></div>
+          </div>
+        }
+        <p class="small">Everyone swipes at their own pace. Joining is now closed.</p>
+      </div>
+
+      <div class="tint every">
+        <span class="heart">♡</span>
+        <h3 class="serif">It takes every yes.</h3>
+        <p>A match means everyone said yes to the same restaurant. Nobody gets outvoted.</p>
+      </div>
+
+      <p class="eyebrow made">Made for your group</p>
+      <p class="muted">Every restaurant here fits the whole group's budget and dietary needs.</p>
+      <p class="muted tiny">Entrée prices exclude tax and tip.</p>
+    </aside>
   </div>
-} @else if (finished()) {
-  <div class="card done">
-    <h1>You're done!</h1>
-    <p>You've seen every restaurant that fits your budget and diet.</p>
-    <a class="see" [routerLink]="['/matches', code]">See the group's matches</a>
-  </div>
-} @else if (error()) {
-  <p class="error">{{ error() }}</p>
-}
+</main>
+
+<app-footer />

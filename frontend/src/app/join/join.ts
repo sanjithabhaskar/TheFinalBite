@@ -1,12 +1,14 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CUISINE_OPTIONS, DIETARY_OPTIONS, Group, pretty } from '../models';
+import { CUISINE_OPTIONS, DIETARY_OPTIONS, Group, initials, pretty } from '../models';
+import { AppFooter } from '../shared/app-footer/app-footer';
+import { AppHeader } from '../shared/app-header/app-header';
 import { RestaurantApi } from '../services/restaurant-api';
 import { Session } from '../services/session';
 
 @Component({
-  imports: [FormsModule],
+  imports: [FormsModule, AppHeader, AppFooter],
   selector: 'app-join',
   styleUrl: './join.css',
   templateUrl: './join.html',
@@ -23,12 +25,25 @@ export class Join {
 
   // form state: signals work directly with [(ngModel)]
   name = signal('');
-  budget = signal<number | null>(25);
+  budget = signal<number | null>(24);
   dietary = signal<string[]>([]);
   cuisines = signal<string[]>([]);
 
   busy = signal(false);
   error = signal('');
+
+  budgetPresets = [15, 20, 24, 30, 40];
+  initials = initials;
+  cuisinesShort = ['mediterranean', 'italian', 'japanese', 'mexican', 'indian', 'thai'];
+  showAllCuisines = signal(false);
+
+  setBudget(n: number | null) {
+    this.budget.set(n);
+  }
+
+  anyCuisine() {
+    this.cuisines.set([]);
+  }
 
   dietaryOptions = DIETARY_OPTIONS;
   cuisineOptions = CUISINE_OPTIONS;
@@ -36,7 +51,7 @@ export class Join {
 
   constructor() {
     // Already joined this group on this browser? Skip the form.
-    if (this.session.getMemberId(this.code) !== null) {
+    if (this.session.get(this.code) !== null) {
       this.router.navigate(['/group', this.code]);
       return;
     }
@@ -67,7 +82,7 @@ export class Join {
       })
       .subscribe({
         next: (member) => {
-          this.session.saveMemberId(this.code, member.id);
+          this.session.save(this.code, { id: member.id, token: member.token });
           this.router.navigate(['/group', this.code]);
         },
         error: (e) => {

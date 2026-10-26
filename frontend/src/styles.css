@@ -1,1 +1,52 @@
-/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap');
+
+:root {
+  --bg: #f7f4ee;
+  --card: #fffdfa;
+  --ink: #2b2723;
+  --muted: #7d746b;
+  --line: #e6dfd3;
+  --accent: #b8553a;
+  --accent-soft: #fbece6;
+  --accent-ink: #9c4128;
+  --sans: 'Inter', system-ui, sans-serif;
+  --serif: 'Lora', Georgia, serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+}
+
+/* ---- shared ---- */
+.page { flex: 1; padding: 40px 64px 56px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.eyebrow { margin: 0 0 14px; color: var(--accent); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.display { font-family: var(--serif); font-weight: 400; font-size: 52px; line-height: 1.1; margin: 0 0 12px; }
+.lede { color: var(--muted); font-size: 17px; line-height: 1.55; margin: 0 0 28px; }
+.surface { background: var(--card); border: 1px solid var(--line); border-radius: 28px; }
+.tint { background: #f6e9e0; border-radius: 28px; }
+.sage { background: #eceee3; border-radius: 28px; }
+.sand { background: #ece6d9; border-radius: 28px; }
+.serif { font-family: var(--serif); font-weight: 400; }
+.chip { padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font: inherit; font-size: 14px; color: #5d554d; cursor: pointer; }
+.chip.on { background: var(--accent-soft); border-color: #e9b9a7; color: var(--accent-ink); font-weight: 500; }
+.chip .tick { margin-right: 6px; }
+.chip.more { border-style: dashed; color: var(--muted); }
+.pill { display: inline-block; padding: 7px 14px; border-radius: 999px; background: #eef0e6; color: #4d5a43; font-size: 13px; font-weight: 500; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 26px; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; border: 1px solid transparent; box-sizing: border-box; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:disabled { opacity: .5; cursor: default; }
+.btn-outline { background: #fff; color: var(--ink); border-color: var(--line); }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: #f6e3d9; color: var(--accent); font-weight: 600; font-size: 13px; display: grid; place-items: center; flex: none; }
+.avatar.sage { background: #e8ecde; color: #55633f; border-radius: 50%; }
+.error { color: #b00020; }
+.photo-box { border-radius: 24px; overflow: hidden; background: linear-gradient(135deg, #e7c9b6, #b8553a); }
+.photo-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 960px) {
+  .page { padding: 24px 20px 40px; }
+  .two { grid-template-columns: 1fr; gap: 28px; }
+  .display { font-size: 38px; }
+}

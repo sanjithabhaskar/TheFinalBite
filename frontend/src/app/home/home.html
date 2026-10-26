@@ -1,18 +1,97 @@
-<h1>MenuSwipe</h1>
-<p class="sub">Decide where to eat, together.</p>
+<app-header [step]="1" />
 
-<section>
-  <h2>Start a group</h2>
-  <input placeholder="Group name (optional)" [(ngModel)]="groupName" />
-  <button (click)="createGroup()" [disabled]="busy()">Create group</button>
-</section>
+<main>
+  <section class="hero">
+    <p class="eyebrow">GOOD TASTE IS BETTER TOGETHER</p>
+    <h1>Less debating.<br />More dining.</h1>
+    <p class="lede">
+      Decide where to eat, together. Bring your people, swipe what looks good, and find a place everyone loves.
+    </p>
 
-<section>
-  <h2>Have an invite code?</h2>
-  <input placeholder="e.g. ABC123" [(ngModel)]="code" (keyup.enter)="goToCode()" />
-  <button (click)="goToCode()" [disabled]="!code().trim()">Join group</button>
-</section>
+    <div class="photo">
+      <img src="hero.jpg" alt="Friends sharing a meal around a table" (error)="$any($event.target).style.display = 'none'" />
+    </div>
+    <p class="caption">There's room for everyone at the table.</p>
 
-@if (error()) {
-  <p class="error">{{ error() }}</p>
-}
+    <ol class="how">
+      <li><strong>Make a group</strong><span>Invite your dinner crew.</span></li>
+      <li><strong>Swipe your picks</strong><span>Everyone gets a say.</span></li>
+      <li><strong>Find your match</strong><span>A yes from every person.</span></li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <div class="tabs">
+      <button [class.on]="tab() === 'create'" (click)="tab.set('create')">Create a group</button>
+      <button [class.on]="tab() === 'join'" (click)="tab.set('join')">Join with a code</button>
+    </div>
+
+    @if (tab() === 'create') {
+      <h2>Your next meal starts here.</h2>
+      <p class="hint">You'll be the host. First, tell us what works for you.</p>
+
+      <div class="row">
+        <label>Your name
+          <input placeholder="Sanji" [ngModel]="name()" (ngModelChange)="name.set($event)" />
+        </label>
+        <label>Group name
+          <input placeholder="Friday dinner" [ngModel]="groupName()" (ngModelChange)="groupName.set($event)" />
+        </label>
+      </div>
+
+      <label>Your maximum budget <span class="opt">· per person, before tax and tip</span>
+        <span class="money">
+          <span class="sym">$</span>
+          <input type="number" min="1" placeholder="32" [ngModel]="budget()" (ngModelChange)="budget.set($event)" />
+          <span class="per">per entrée</span>
+        </span>
+      </label>
+
+      <p class="label">Dietary restrictions · <span class="opt">optional</span></p>
+      <div class="chips">
+        @for (d of showAllDiet() ? dietaryAll : dietaryShort; track d) {
+          <button type="button" class="chip" [class.on]="dietary().includes(d)" (click)="toggle(dietary, d)">
+            @if (dietary().includes(d)) { <span class="tick">✓</span> }{{ pretty(d) }}
+          </button>
+        }
+        @if (!showAllDiet()) { <button type="button" class="chip more" (click)="showAllDiet.set(true)">More</button> }
+      </div>
+
+      <p class="label">Preferred cuisines · <span class="opt">optional, leave blank if you're happy to explore</span></p>
+      <div class="chips">
+        @for (c of showAllCuisines() ? cuisinesAll : cuisinesShort; track c) {
+          <button type="button" class="chip" [class.on]="cuisines().includes(c)" (click)="toggle(cuisines, c)">
+            @if (cuisines().includes(c)) { <span class="tick">✓</span> }{{ pretty(c) }}
+          </button>
+        }
+        @if (!showAllCuisines()) { <button type="button" class="chip more" (click)="showAllCuisines.set(true)">More</button> }
+      </div>
+
+      @if (error()) { <p class="error">{{ error() }}</p> }
+
+      <button class="cta" (click)="createGroup()" [disabled]="!canCreate()">Create group <span>→</span></button>
+      <p class="invited">Already invited? <a (click)="tab.set('join')">Join with a code →</a></p>
+    } @else {
+      <h2>Got an invite?</h2>
+      <p class="hint">Enter the 6-character code your host shared.</p>
+
+      <label>Invite code
+        <input placeholder="ABC123" maxlength="6" [ngModel]="code()" (ngModelChange)="onCode($event)" (keyup.enter)="goToCode()" />
+      </label>
+      @switch (codeState()) {
+        @case ('checking') { <p class="status">Checking…</p> }
+        @case ('valid') {
+          <p class="status ok">✓ Valid@if (preview()?.host_name) { · Hosted by {{ preview()?.host_name }} }</p>
+        }
+        @case ('invalid') { <p class="status bad">We can't find that code. Check it and try again.</p> }
+      }
+      <button class="cta" (click)="goToCode()" [disabled]="codeState() !== 'valid'">Continue <span>→</span></button>
+      <p class="invited">Starting fresh? <a (click)="tab.set('create')">Create a group →</a></p>
+    }
+  </section>
+</main>
+
+<footer>
+  <span>Decide where to eat, together.</span>
+  <span>A little less "where should we eat?"</span>
+</footer>

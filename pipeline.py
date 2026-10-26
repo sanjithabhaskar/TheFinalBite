@@ -6,6 +6,8 @@ Restaurant menu pipeline for the group-dining app.
   python pipeline.py menus --limit 25
   python pipeline.py report
   python pipeline.py menu-url "Noodle Bar" https://example.com/the-menu   (fix a stubborn one by hand)
+  python pipeline.py import-csv "Ippudo" ippudo.csv      (type the menu yourself, no AI)
+  python pipeline.py set-price "Ippudo" 20 --min 17 --max 24   (quickest: just a typical entree price)
 
 Steps:
   seed   -> Google Places (New) text search per neighborhood -> restaurants table
@@ -14,7 +16,9 @@ Steps:
 """
 import argparse
 import base64
+import csv
 import json
+import unicodedata
 import os
 import re
 import statistics
@@ -22,7 +26,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal, Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import httpx
 import psycopg
@@ -40,8 +44,69 @@ CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-5-5")
 # Free Gemini tier allows only a handful of requests/minute; claude can go faster
 MIN_SECONDS_BETWEEN_CALLS = float(os.environ.get("LLM_MIN_SECONDS", "6" if PROVIDER == "gemini" else "0"))
 
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; GroupDiningMenuBot/0.1)"}
+# Many restaurant sites block anything that doesn't look like a normal browser, so we look like one.
+BROWSER_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+HEADERS = {
+    "User-Agent": BROWSER_UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,image/*;q=0.8,*/*;q=0.7",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 http = httpx.Client(headers=HEADERS, timeout=20, follow_redirects=True)
+
+
+def clean_url(url):
+    """Drop tracking junk like ?utm_source=google (Google's own links carry it and some sites 403 on it)."""
+    parts = urlparse(url)
+    keep = [(k, v) for k, v in parse_qsl(parts.query) if not k.lower().startswith(("utm_", "gclid", "fbclid"))]
+    return urlunparse(parts._replace(query=urlencode(keep)))
+
+
+class Page:
+    """What fetch() returns: the bits of an HTTP response the rest of the code uses."""
+    def __init__(self, url, text, content, headers):
+        self.url, self.text, self.content, self.headers = url, text, content, headers
+
+
+def render(url):
+    """Open the page in a real (headless) browser so JavaScript menus and bot checks work.
+    Needs:  pip install playwright   and   playwright install chromium"""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return None
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page(user_agent=BROWSER_UA)
+            page.goto(url, wait_until="networkidle", timeout=40_000)
+            html, final = page.content(), page.url
+            browser.close()
+        return Page(final, html, html.encode(), {"content-type": "text/html"})
+    except Exception:
+        return None
+
+
+def fetch(url, force_render=False):
+    """GET a page. Retries when we're told to slow down (429). If the site blocks us (403) or
+    we ask for it, falls back to a real browser when Playwright is installed."""
+    url = clean_url(url)
+    if force_render:
+        rendered = render(url)
+        if rendered:
+            return rendered
+    for attempt in range(3):
+        r = http.get(url)
+        if r.status_code == 429:
+            time.sleep(15 * (attempt + 1))
+            continue
+        if r.status_code in (403, 401):
+            rendered = render(url)
+            if rendered:
+                return rendered
+        r.raise_for_status()
+        return r
+    r.raise_for_status()
 
 # Places we don't want in a "where should we eat dinner" swipe pool
 EXCLUDE_PRIMARY = {
@@ -160,54 +225,126 @@ def seed(neighborhoods):
 
 
 # ------------------------------------------------------------- find the menu
-SKIP_WORDS = ("gift", "catering", "career", "job", "privacy", "terms")
-DEMOTE_WORDS = ("wine", "drink", "cocktail", "dessert", "kid", "beverage", "bar-menu", "happy")
+SKIP_WORDS = ("gift", "catering", "career", "job", "privacy", "terms", "login", "cart", "account")
+# menus we'd rather not use for "where to eat dinner" (tried only if nothing better works)
+DEMOTE_WORDS = ("wine", "drink", "cocktail", "dessert", "kid", "beverage", "bar-menu", "bar menu", "happy",
+                "brunch", "breakfast", "lunch", "late night", "late-night")
+PREFER_WORDS = ("dinner", "main")
+# button/link labels that mean "this is a menu" even without the word menu in them
+MENU_LABELS = {"main", "dinner", "dinner menu", "food", "food menu", "view menu", "menu", "menus",
+               "dine in", "dine-in", "à la carte", "a la carte"}
+# labels that lead to a page about the restaurant itself (a place to look for menu links one level deeper)
+HUB_LABELS = {"restaurant", "restaurants", "dining", "dine", "eat", "our restaurants", "food & drink"}
 
 
 def slugify(text):
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
 
 
-def candidate_links(site_url, name="", hood=""):
-    """Menu-looking links on the page, plus (for chain sites) links to this restaurant's own
-    location page, e.g. /restaurants/noodle-bar-east-village."""
-    r = http.get(site_url)
-    base_host = urlparse(str(r.url)).netloc
-    soup = BeautifulSoup(r.text, "html.parser")
-    hood_slug = slugify(hood)
-    name_slug = slugify(name)
-    seen, cands = set(), []
+def _scan(page, name, hood):
+    """Menu-looking links on one page: [(score, url)], lower score = try first."""
+    soup = BeautifulSoup(page.text, "html.parser")
+    hood_slug, name_slug = slugify(hood), slugify(name)
+    base_host = urlparse(str(page.url)).netloc
+    found = {}
     for a in soup.find_all("a", href=True):
-        full = urljoin(str(r.url), a["href"])
-        hay = (a.get_text(" ", strip=True) + " " + a["href"]).lower()
+        href = a["href"].strip()
+        if href.startswith(("mailto:", "tel:", "javascript:", "#")):
+            continue
+        full = clean_url(urljoin(str(page.url), href))
+        label = a.get_text(" ", strip=True).lower()
+        hay = label + " " + href.lower()
+        if any(w in hay for w in SKIP_WORDS):
+            continue
         hay_slug = slugify(hay)
-        if any(w in hay for w in SKIP_WORDS) or full in seen:
-            continue
-        is_menu = "menu" in hay
         same_site = urlparse(full).netloc == base_host
+        is_menu = "menu" in hay or label in MENU_LABELS
         is_loc = same_site and ((hood_slug and hood_slug in hay_slug) or (name_slug and name_slug in hay_slug))
-        if not (is_menu or is_loc):
+        is_hub = same_site and label in HUB_LABELS
+        if not (is_menu or is_loc or is_hub):
             continue
-        seen.add(full)
-        score = 0 if ".pdf" in full.lower() else 1 if full.lower().endswith((".jpg", ".jpeg", ".png", ".webp")) else 2
+        lower = full.lower().split("?")[0]
+        score = 0 if lower.endswith(".pdf") else 1 if lower.endswith((".jpg", ".jpeg", ".png", ".webp")) else 2
         if is_menu and is_loc:
             score -= 2
-        elif is_loc:
+        elif is_loc and not is_menu:
             score += 1
+        if is_hub and not is_menu:
+            score += 2
         if any(w in hay for w in DEMOTE_WORDS):
             score += 5
-        cands.append((score, full))
-    cands.sort(key=lambda x: x[0])
-    urls = [u for _, u in cands][:4]
-    if str(r.url) not in urls:
-        urls.append(str(r.url))  # the page itself is always a last resort
-    return urls
+        if any(w in hay for w in PREFER_WORDS):
+            score -= 1
+        found[full] = min(score, found.get(full, 99))
+    return sorted((s, u) for u, s in found.items())
 
 
-def load_source(url):
+def _scan_with_fallback(url, name, hood):
+    """Scan a page; if it has no menu-ish links, look again in a real browser (menus often sit in JS popups)."""
+    try:
+        page = fetch(url)
+    except Exception:
+        page = None
+    links = _scan(page, name, hood) if page else []
+    if not links:
+        rendered = render(clean_url(url))
+        if rendered:
+            page, links = rendered, _scan(rendered, name, hood)
+    return page, links
+
+
+def _is_file(url):
+    return url.lower().split("?")[0].endswith((".pdf", ".jpg", ".jpeg", ".png", ".webp"))
+
+
+def candidate_links(site_url, name="", hood=""):
+    """Where the menu might be, best guess first. Looks on the homepage, then one level deeper
+    (home -> Restaurant page -> Main menu; or Dining -> Gemma -> View menu -> Dinner)."""
+    home, level1 = _scan_with_fallback(site_url, name, hood)
+    home_url = str(home.url) if home else clean_url(site_url)
+    files = [u for _, u in level1 if _is_file(u)]
+    pages = [(s, u) for s, u in level1 if not _is_file(u) and u != home_url]
+
+    second = []
+    for _, url in pages[:3]:                      # open the best few pages and look for menus inside them
+        _, sub = _scan_with_fallback(url, name, hood)
+        second += [(s + 1, u) for s, u in sub if u not in (home_url, url)]
+    second.sort()
+
+    ordered, seen = [], set()
+    for u in files + [u for _, u in second] + [u for _, u in pages] + [home_url]:
+        if u not in seen:
+            seen.add(u)
+            ordered.append(u)
+    return ordered[:8]
+
+
+def load_local_file(path):
+    """A menu you saved yourself: a PDF, or a screenshot (png/jpg/webp)."""
+    f = Path(path).expanduser()
+    if not f.is_file():
+        raise FileNotFoundError(f"no such file: {f}")
+    mime = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(f.suffix.lower())
+    if mime is None:
+        raise ValueError("use a .pdf, .png, .jpg or .webp file")
+    data = f.read_bytes()
+    return {"kind": "pdf" if mime == "application/pdf" else "image", "data": data, "mime": mime}
+
+
+PRICE_RE = re.compile(r"(?<![\w:.$/-])\$?\s?\d{1,3}(?:\.\d{2})?(?![\w:/%-])")
+
+
+def looks_like_menu_text(text):
+    """A real menu has lots of prices (with or without a $). Hours, addresses and nav menus don't."""
+    return len(PRICE_RE.findall(text)) >= 8
+
+
+def load_source(url, force_render=False):
     """Returns {"kind": pdf|image|text, "data": bytes|str, "mime": str} for the menu at url, or None."""
-    r = http.get(url)
-    r.raise_for_status()
+    if not url.lower().startswith("http"):
+        return load_local_file(url)
+    r = fetch(url, force_render)
     ctype = r.headers.get("content-type", "").lower().split(";")[0]
     if "pdf" in ctype or url.lower().split("?")[0].endswith(".pdf"):
         if len(r.content) > MAX_PDF_BYTES:
@@ -219,8 +356,10 @@ def load_source(url):
     for tag in soup(["script", "style", "noscript", "svg", "nav", "footer"]):
         tag.decompose()
     text = soup.get_text("\n", strip=True)
-    if "$" not in text and not any(ch.isdigit() for ch in text):
-        return None  # probably a JS-rendered page with no menu in the HTML
+    if not looks_like_menu_text(text):
+        if not force_render:
+            return load_source(url, force_render=True)   # probably a JavaScript page: try a real browser
+        return None
     return {"kind": "text", "data": "MENU PAGE TEXT:\n" + text[:MAX_TEXT_CHARS], "mime": "text/plain"}
 
 
@@ -231,6 +370,7 @@ PROMPT = """Extract the FOOD menu from the source provided and return it in the 
 
 Rules:
 - Include food only. Skip drinks, wine lists, and cocktails.
+- If the source has separate breakfast, brunch or lunch menus AND a dinner menu, extract ONLY the dinner menu (or the all-day menu). If it only contains breakfast/brunch/lunch items, extract those.
 - Prices are USD numbers (no $). If an item shows two prices (e.g. 12/15 or small/large), use the lowest.
 - category "entree" = a main course meant to be a person's primary dish (pastas, mains, burgers, sandwiches, bowls, pizzas, noodle dishes, etc.). Small plates, starters, and shareables are "appetizer". For cuisines without clear courses (ramen shop, taqueria, pizzeria), mark the main dishes as "entree".
 - category "shared" = large-format or family-style dishes meant for 2 or more people (e.g. "serves 2-4", "feeds 4-8", whole chicken or whole fish for the table, platters, tasting spreads). These are NOT entrees; do not count them as one.
@@ -388,6 +528,7 @@ def clean_items(items):
 
 def process_restaurant(conn, rid, name, website, hood, override):
     last_note = "no candidate menu links worked"
+    website = clean_url(website) if website else website
     if override:
         urls = [override]  # you told us exactly where the menu is
     else:
@@ -442,7 +583,8 @@ def save_menu(conn, rid, url, parsed, items):
              menu_last_verified=now(), updated_at=now()
            WHERE id=%s""",
         (
-            url, parsed.get("menu_style"), parsed.get("prix_fixe_price"),
+            url if str(url).lower().startswith("http") else None,
+            parsed.get("menu_style"), parsed.get("prix_fixe_price"),
             statistics.median(entree_prices) if entree_prices else None,
             min(entree_prices) if entree_prices else None,
             max(entree_prices) if entree_prices else None,
@@ -465,7 +607,7 @@ def run_menus(limit, refresh_days):
         where = "menu_status = 'pending'"
         params = []
         if refresh_days is not None:
-            where += (" OR (menu_status = 'parsed' AND menu_last_verified"
+            where += (" OR (menu_status = 'parsed' AND menu_note IS DISTINCT FROM 'manual' AND menu_last_verified"
                       " < now() - make_interval(days => %s))")
             params.append(refresh_days)
         params.append(limit)
@@ -509,6 +651,81 @@ def set_menu_url(name_query, url):
         print(f"Queued {rows[0][1]} with menu URL {url}")
 
 
+# ------------------------------------------------------------------ manual entry
+VALID_CATEGORIES = {"appetizer", "entree", "shared", "side", "dessert", "other"}
+
+
+def _find_one(conn, name_query):
+    rows = conn.execute(
+        "SELECT id, name, website FROM restaurants WHERE name ILIKE %s", (f"%{name_query}%",)
+    ).fetchall()
+    if len(rows) != 1:
+        print(f"{len(rows)} restaurants match '{name_query}':")
+        for _, n, _w in rows:
+            print(f"   {n}")
+        print("Use a more specific name so exactly one matches.")
+        return None
+    return rows[0]
+
+
+def read_menu_csv(path):
+    """CSV columns: name, price (required); category, section, description, dietary_tags (optional).
+    category defaults to 'entree'. dietary_tags can be separated by ; or ,"""
+    items = []
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f):
+            tags = [t.strip().lower() for t in re.split(r"[;,]", row.get("dietary_tags") or "")]
+            items.append({
+                "section": (row.get("section") or "").strip(),
+                "category": ((row.get("category") or "").strip().lower() or "entree"),
+                "name": (row.get("name") or "").strip(),
+                "description": (row.get("description") or "").strip(),
+                "price": (row.get("price") or "").replace("$", "").strip(),
+                "dietary_tags": [t for t in tags if t in DIETARY],
+            })
+    return items
+
+
+def import_csv(name_query, path):
+    """Load a hand-typed menu for one restaurant (no AI involved)."""
+    items = read_menu_csv(path)
+    bad = sorted({i["category"] for i in items if i["category"] not in VALID_CATEGORIES})
+    if bad:
+        print(f"Unknown categories {bad}. Use one of: {sorted(VALID_CATEGORIES)}")
+        return
+    items = clean_items(items)
+    if not items:
+        print("No valid rows found (each row needs a name and a numeric price).")
+        return
+    with db() as conn:
+        found = _find_one(conn, name_query)
+        if not found:
+            return
+        rid, name, website = found
+        save_menu(conn, rid, website, {"menu_style": "a_la_carte", "prix_fixe_price": None}, items)
+        conn.execute("UPDATE restaurants SET menu_note='manual' WHERE id=%s", (rid,))
+        conn.commit()
+        n_entree = sum(1 for i in items if i["category"] == "entree")
+        print(f"Saved {len(items)} items for {name} ({n_entree} entrees).")
+
+
+def set_price(name_query, median, lo, hi):
+    """Fastest manual option: just record a typical entree price, no item list."""
+    with db() as conn:
+        found = _find_one(conn, name_query)
+        if not found:
+            return
+        rid, name, _ = found
+        conn.execute(
+            """UPDATE restaurants SET median_entree_price=%s, min_entree_price=%s, max_entree_price=%s,
+                 menu_style='a_la_carte', menu_status='parsed', menu_note='manual',
+                 menu_last_verified=now(), updated_at=now() WHERE id=%s""",
+            (median, lo if lo is not None else median, hi if hi is not None else median, rid),
+        )
+        conn.commit()
+        print(f"Saved typical entree price ${median:g} for {name}.")
+
+
 # ----------------------------------------------------------------------- report
 def report():
     with db() as conn:
@@ -533,6 +750,98 @@ def report():
 
 
 # -------------------------------------------------------------------------- cli
+def add_menu(name, url, hood, address, cuisines, rating):
+    """Add ONE restaurant from a menu link or a saved file, and parse it now.
+    If a restaurant with exactly this name already exists, that one is updated instead of duplicated.
+    Returns True if the menu was parsed."""
+    is_link = url.lower().startswith("http")
+    with db() as conn:
+        name = unicodedata.normalize("NFC", name).replace("\u2019", "'").strip()
+        same = conn.execute(
+            "SELECT id FROM restaurants WHERE lower(replace(name, chr(8217), chr(39))) = lower(%s)", (name,)
+        ).fetchall()
+        print(("Updating existing" if len(same) == 1 else "NEW restaurant (no exact name match)") + f": {name}")
+        if len(same) == 1:
+            rid = same[0][0]
+            conn.execute(
+                """UPDATE restaurants SET menu_url_override=%s, menu_status='pending', menu_note=NULL,
+                       neighborhood = COALESCE(%s, neighborhood),
+                       cuisines = CASE WHEN cardinality(%s::text[]) > 0 THEN %s::text[] ELSE cuisines END
+                   WHERE id=%s""",
+                (url, hood, cuisines or [], cuisines or [], rid),
+            )
+        else:
+            place_id = "manual_" + slugify(name) + ("_" + slugify(hood) if hood else "")
+            rid = conn.execute(
+                """INSERT INTO restaurants (place_id, name, neighborhood, address, website, cuisines, rating,
+                                            menu_url_override, menu_status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+                   ON CONFLICT (place_id) DO UPDATE
+                     SET menu_url_override = EXCLUDED.menu_url_override, menu_status = 'pending', menu_note = NULL
+                   RETURNING id""",
+                (place_id, name, hood, address, url if is_link else None, cuisines or [], rating, url),
+            ).fetchone()[0]
+        conn.commit()
+        print(f"Parsing {name} from {url} ...")
+        process_restaurant(conn, rid, name, None, hood, url)
+        conn.commit()
+        status, note = conn.execute("SELECT menu_status, menu_note FROM restaurants WHERE id=%s", (rid,)).fetchone()
+        if status == "parsed":
+            m = conn.execute(
+                "SELECT median_entree_price, entree_count FROM restaurants WHERE id=%s", (rid,)
+            ).fetchone()
+            print(f"  [ok] {name}: median entree ${m[0]} from {m[1]} entrees")
+            return True
+        print(f"  [failed] {name}: {note}")
+        return False
+
+
+def add_folder(folder, hood, cuisines, limit=None):
+    """Parse every menu file in a folder. The file name IS the restaurant name:
+         Cafe Mogador.pdf, Smor.png, Little_Kirin.jpg   (underscores become spaces)
+       Files that parse are moved into a 'done' subfolder, so you can re-run safely."""
+    d = Path(folder).expanduser()
+    if not d.is_dir():
+        print(f"No such folder: {d}")
+        return
+    files = sorted(f for f in d.iterdir() if f.suffix.lower() in (".pdf", ".png", ".jpg", ".jpeg", ".webp"))
+    if limit:
+        files = files[:limit]
+    print(f"{len(files)} menu files in {d}")
+    done = d / "done"
+    ok = 0
+    for f in files:
+        name = " ".join(f.stem.replace("_", " ").split())
+        try:
+            if add_menu(name, str(f), hood, None, cuisines, None):
+                done.mkdir(exist_ok=True)
+                f.rename(done / f.name)
+                ok += 1
+        except Exception as e:
+            print(f"  [error] {name}: {e}")
+    print(f"Parsed {ok} of {len(files)}.")
+
+
+def add_list(path, default_hood):
+    """Add many restaurants from a plain text file. One per line:
+         Name | menu link or file | neighborhood (optional) | cuisines, comma separated (optional)
+       Blank lines and lines starting with # are ignored."""
+    lines = [l.strip() for l in Path(path).expanduser().read_text().splitlines()]
+    todo = [l for l in lines if l and not l.startswith("#")]
+    print(f"{len(todo)} restaurants to add")
+    for line in todo:
+        parts = [x.strip() for x in line.split("|")]
+        if len(parts) < 2 or not parts[1]:
+            print(f"  skipped (needs 'name | link'): {line}")
+            continue
+        hood = parts[2] if len(parts) > 2 and parts[2] else default_hood
+        cuisines = [c.strip() for c in parts[3].split(",") if c.strip()] if len(parts) > 3 else []
+        try:
+            add_menu(parts[0], parts[1], hood, None, cuisines, None)
+        except Exception as e:
+            print(f"  [error] {parts[0]}: {e}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -547,6 +856,29 @@ def main():
     u = sub.add_parser("menu-url", help="set the exact menu page for one restaurant")
     u.add_argument("name")
     u.add_argument("url")
+    c = sub.add_parser("import-csv", help="load a hand-typed menu for one restaurant")
+    c.add_argument("name")
+    c.add_argument("file")
+    a = sub.add_parser("add-menu", help="add a restaurant from its menu page URL and parse it now")
+    a.add_argument("name")
+    a.add_argument("url")
+    a.add_argument("--hood", default=None, help="neighborhood, e.g. 'East Village'")
+    a.add_argument("--address", default=None)
+    a.add_argument("--cuisine", action="append", default=[], help="repeat for several, e.g. --cuisine thai")
+    a.add_argument("--rating", type=float, default=None)
+    fo = sub.add_parser("add-folder", help="parse every menu PDF/screenshot in a folder (file name = restaurant name)")
+    fo.add_argument("folder")
+    fo.add_argument("--hood", default=None, help="neighborhood for all of them, e.g. 'East Village'")
+    fo.add_argument("--limit", type=int, default=None, help="only do the first N files this run")
+    fo.add_argument("--cuisine", action="append", default=[], help="cuisine for all of them (rarely useful)")
+    l = sub.add_parser("add-list", help="add many restaurants from a text file of 'name | menu link or file'")
+    l.add_argument("file")
+    l.add_argument("--hood", default=None, help="default neighborhood for lines that don't give one")
+    p = sub.add_parser("set-price", help="just record a typical entree price for one restaurant")
+    p.add_argument("name")
+    p.add_argument("median", type=float)
+    p.add_argument("--min", type=float, dest="lo")
+    p.add_argument("--max", type=float, dest="hi")
     args = ap.parse_args()
 
     if args.cmd == "init-db":
@@ -559,6 +891,16 @@ def main():
         report()
     elif args.cmd == "menu-url":
         set_menu_url(args.name, args.url)
+    elif args.cmd == "import-csv":
+        import_csv(args.name, args.file)
+    elif args.cmd == "add-menu":
+        add_menu(args.name, args.url, args.hood, args.address, args.cuisine, args.rating)
+    elif args.cmd == "add-folder":
+        add_folder(args.folder, args.hood, args.cuisine, args.limit)
+    elif args.cmd == "add-list":
+        add_list(args.file, args.hood)
+    elif args.cmd == "set-price":
+        set_price(args.name, args.median, args.lo, args.hi)
 
 
 if __name__ == "__main__":

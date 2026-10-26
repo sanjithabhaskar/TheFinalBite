@@ -1,27 +1,32 @@
 import { Service } from '@angular/core';
 
+export interface Me {
+  id: number;
+  token: string;
+}
+
 /**
- * Remembers which member "you" are in each group, in this browser only.
- * (There are no logins: the member id is saved in localStorage.)
+ * Remembers who "you" are in each group, in this browser only.
+ * The token is your private key: the server only shows your budget and diet to someone holding it.
  */
 @Service()
 export class Session {
   private key(code: string) {
-    return `menuswipe.member.${code.toUpperCase()}`;
+    return `finalbite.member.${code.toUpperCase()}`;
   }
 
-  getMemberId(code: string): number | null {
+  get(code: string): Me | null {
     try {
       const v = localStorage.getItem(this.key(code));
-      return v ? Number(v) : null;
+      return v ? (JSON.parse(v) as Me) : null;
     } catch {
       return null; // storage can be blocked; the app should still work
     }
   }
 
-  saveMemberId(code: string, id: number): void {
+  save(code: string, me: Me): void {
     try {
-      localStorage.setItem(this.key(code), String(id));
+      localStorage.setItem(this.key(code), JSON.stringify(me));
     } catch {
       /* ignore */
     }
