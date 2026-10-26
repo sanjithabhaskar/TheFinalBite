@@ -1,0 +1,45 @@
+@if (notFound()) {
+  <h1>Group not found</h1>
+  <p>There's no group with code <strong>{{ code }}</strong>. Check the code and try again.</p>
+  <a href="/">Back home</a>
+} @else if (group(); as g) {
+  <h1>Join {{ g.name || 'the group' }}</h1>
+  <p class="sub">Invite code {{ g.invite_code }} · {{ g.members.length }} joined so far</p>
+
+  <label>Your name
+    <input [(ngModel)]="name" placeholder="Name" />
+  </label>
+
+  <label>Most you'd pay for one entrée (before tax and tip)
+    <span class="money"><span>$</span><input type="number" min="1" [(ngModel)]="budget" /></span>
+  </label>
+
+  <fieldset>
+    <legend>Dietary restrictions <span class="opt">(optional, skip if none)</span></legend>
+    <div class="chips">
+      @for (d of dietaryOptions; track d) {
+        <button type="button" class="chip" [class.on]="dietary().includes(d)" (click)="toggle(dietary, d)">
+          {{ pretty(d) }}
+        </button>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cuisines you like <span class="opt">(optional)</span></legend>
+    <div class="chips">
+      @for (c of cuisineOptions; track c) {
+        <button type="button" class="chip" [class.on]="cuisines().includes(c)" (click)="toggle(cuisines, c)">
+          {{ pretty(c) }}
+        </button>
+      }
+    </div>
+  </fieldset>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+  <button class="primary" (click)="submit()" [disabled]="!canSubmit()">Join group</button>
+} @else {
+  <p>Loading...</p>
+}

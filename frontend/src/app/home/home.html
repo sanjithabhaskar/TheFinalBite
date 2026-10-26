@@ -1,0 +1,18 @@
+<h1>MenuSwipe</h1>
+<p class="sub">Decide where to eat, together.</p>
+
+<section>
+  <h2>Start a group</h2>
+  <input placeholder="Group name (optional)" [(ngModel)]="groupName" />
+  <button (click)="createGroup()" [disabled]="busy()">Create group</button>
+</section>
+
+<section>
+  <h2>Have an invite code?</h2>
+  <input placeholder="e.g. ABC123" [(ngModel)]="code" (keyup.enter)="goToCode()" />
+  <button (click)="goToCode()" [disabled]="!code().trim()">Join group</button>
+</section>
+
+@if (error()) {
+  <p class="error">{{ error() }}</p>
+}

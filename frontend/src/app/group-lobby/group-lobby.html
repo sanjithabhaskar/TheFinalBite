@@ -1,0 +1,44 @@
+@if (group(); as g) {
+  <h1>{{ g.name || 'Your group' }}</h1>
+
+  <div class="invite">
+    <div>
+      <div class="label">Invite code</div>
+      <div class="code">{{ g.invite_code }}</div>
+    </div>
+    <button (click)="copyLink()">{{ copied() ? 'Copied!' : 'Copy invite link' }}</button>
+  </div>
+  <p class="link">{{ inviteLink }}</p>
+
+  <h2>In this group ({{ g.members.length }})</h2>
+  <ul>
+    @for (m of g.members; track m.id) {
+      <li [class.me]="m.id === myId">
+        <strong>
+          {{ m.name }}
+          @if (m.id === myId) { (you) }
+          @if (m.id === g.host_member_id) { <span class="host">host</span> }
+        </strong>
+        <span class="meta">
+          up to ${{ m.max_entree_budget }}
+          @if (m.dietary_restrictions.length) { · {{ m.dietary_restrictions.map(pretty).join(', ') }} }
+        </span>
+      </li>
+    }
+  </ul>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (isHost()) {
+    <button class="start" (click)="start()" [disabled]="starting()">Start swiping</button>
+    <p class="next">Wait for everyone to join first. Nobody can join after you start.</p>
+  } @else {
+    <p class="next">Waiting for the host to start swiping...</p>
+  }
+} @else if (error()) {
+  <p class="error">{{ error() }}</p>
+} @else {
+  <p>Loading...</p>
+}

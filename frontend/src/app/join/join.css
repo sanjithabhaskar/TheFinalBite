@@ -1,0 +1,15 @@
+:host { display: block; max-width: 520px; margin: 2rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; }
+.sub { color: #666; margin-top: -0.5rem; }
+label { display: flex; flex-direction: column; gap: 0.3rem; margin: 1rem 0; font-weight: 600; }
+input { padding: 0.6rem; font-size: 1rem; border: 1px solid #bbb; border-radius: 6px; font-weight: 400; }
+.money { display: flex; align-items: center; gap: 0.4rem; }
+.money input { width: 7rem; }
+fieldset { border: 0; padding: 0; margin: 1rem 0; }
+legend { font-weight: 600; margin-bottom: 0.4rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip { padding: 0.35rem 0.8rem; border: 1px solid #bbb; border-radius: 999px; background: #fff; cursor: pointer; font-size: 0.9rem; }
+.chip.on { background: #d9480f; border-color: #d9480f; color: #fff; }
+.primary { width: 100%; padding: 0.8rem; font-size: 1rem; border: 0; border-radius: 6px; background: #d9480f; color: #fff; cursor: pointer; margin-top: 1rem; }
+.primary:disabled { opacity: 0.5; cursor: default; }
+.error { color: #b00020; }
+.opt { font-weight: 400; color: #666; font-size: 0.85rem; }

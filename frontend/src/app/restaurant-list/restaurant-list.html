@@ -1,0 +1,24 @@
+<h1>Restaurants</h1>
+
+@if (loading()) {
+  <p>Loading...</p>
+} @else if (error()) {
+  <p class="error">{{ error() }}</p>
+} @else {
+  <ul>
+    @for (r of restaurants(); track r.id) {
+      <li>
+        <strong>{{ r.name }}</strong>
+        <span class="meta">
+          {{ r.neighborhood }}
+          @if (r.median_entree_price !== null) {
+            · typical entrée ${{ r.median_entree_price }}
+          } @else {
+            · price varies (tasting menu)
+          }
+        </span>
+        <span class="meta">{{ r.cuisines?.join(', ') }}</span>
+      </li>
+    }
+  </ul>
+}

@@ -1,0 +1,10 @@
+:host { display: block; max-width: 520px; margin: 1.5rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; }
+nav { margin-bottom: 1rem; }
+a { color: #d9480f; }
+.sub { color: #666; margin-top: -0.5rem; }
+ul { list-style: none; padding: 0; }
+li { padding: 0.8rem 0; border-bottom: 1px solid #ddd; display: flex; flex-direction: column; gap: 0.2rem; }
+li strong { font-size: 1.1rem; }
+.meta { color: #666; font-size: 0.9rem; }
+.empty { color: #666; }
+.error { color: #b00020; }

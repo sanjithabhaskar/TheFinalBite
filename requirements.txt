@@ -1,0 +1,5 @@
+anthropic
+httpx
+beautifulsoup4
+psycopg[binary]
+python-dotenv

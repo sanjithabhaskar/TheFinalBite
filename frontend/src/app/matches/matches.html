@@ -1,0 +1,26 @@
+<nav><a [routerLink]="['/swipe', code]">← Back to swiping</a></nav>
+<h1>Matches</h1>
+
+@if (data(); as d) {
+  <p class="sub">Restaurants all {{ d.member_count }} of you said yes to. This updates as people swipe.</p>
+
+  @if (d.matches.length === 0) {
+    <p class="empty">No matches yet. Keep swiping, or wait for the others to finish.</p>
+  } @else {
+    <ul>
+      @for (r of d.matches; track r.id) {
+        <li>
+          <strong>{{ r.name }}</strong>
+          <span class="meta">
+            {{ r.neighborhood }} · typical entrée ${{ r.median_entree_price }}
+          </span>
+          <span class="meta">{{ (r.cuisines ?? []).map(pretty).join(', ') }}</span>
+        </li>
+      }
+    </ul>
+  }
+} @else if (error()) {
+  <p class="error">{{ error() }}</p>
+} @else {
+  <p>Loading...</p>
+}

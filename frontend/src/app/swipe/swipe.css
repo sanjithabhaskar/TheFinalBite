@@ -1,0 +1,19 @@
+:host { display: block; max-width: 420px; margin: 1.5rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; }
+nav { text-align: right; margin-bottom: 1rem; }
+a { color: #d9480f; }
+.card { border: 1px solid #ddd; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+.card h1 { margin: 0 0 0.3rem; font-size: 1.7rem; }
+.sub { color: #666; margin: 0 0 1rem; }
+.price { font-size: 1.15rem; margin: 0 0 1rem; }
+.range { color: #666; font-size: 0.9rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.tag { background: #f1f3f5; border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.85rem; }
+.tag.diet { background: #ebfbee; }
+.actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+.actions button { flex: 1; padding: 1rem; font-size: 1.1rem; border: 0; border-radius: 10px; cursor: pointer; color: #fff; }
+.no { background: #868e96; }
+.yes { background: #d9480f; }
+.actions button:disabled { opacity: 0.5; cursor: default; }
+.done { text-align: center; }
+.see { display: inline-block; margin-top: 1rem; padding: 0.7rem 1.2rem; background: #d9480f; color: #fff; border-radius: 8px; text-decoration: none; }
+.error { color: #b00020; }

@@ -1,0 +1,10 @@
+.env
+.env.example
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+frontend/dist/
+frontend/.angular/
+.DS_Store
+db.sqlite3
