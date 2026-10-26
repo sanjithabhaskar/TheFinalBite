@@ -9,7 +9,8 @@ import { Me } from './session';
 @Service()
 export class RestaurantApi {
   private http = inject(HttpClient);
-  private base = 'http://127.0.0.1:8000/api';
+  private base = 'https://thefinalbite.onrender.com/api';
+  
 
   private auth(me: Me) {
     return { headers: new HttpHeaders({ 'X-Member-Token': me.token }) };
