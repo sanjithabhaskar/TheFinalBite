@@ -23,7 +23,7 @@
               @if (r.image_url && !brokenImages().has(r.id)) {
                 <img [src]="r.image_url" [alt]="r.name" (error)="imageFailed(r.id)" referrerpolicy="no-referrer" />
               }
-              <span class="badge">🍃 A fit for your group</span>
+              <span class="badge">A fit for your group</span>
               @if (r.menu_url || r.website) {
                 <a class="out" [href]="r.menu_url || r.website" target="_blank" rel="noopener" aria-label="View the menu">↗</a>
               }
